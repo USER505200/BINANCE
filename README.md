@@ -12,6 +12,7 @@ For each confirmed deposit, the embed includes:
 - Account name
 - Coin
 - Amount
+- USD value at current Binance market price
 - Network
 - Source/address (if available from Binance)
 - TxID
@@ -79,5 +80,6 @@ npm start
 ## Notes
 
 - First run does not resend old deposits unless `SEND_OLD_DEPOSITS=true`.
+- USD value is estimated from the current Binance spot market price at send time.
 - Confirmed statuses from Binance are handled (`1` and `6`).
 - Global slash commands may take time to appear. If you set `DISCORD_GUILD_ID`, they update faster in that guild.

@@ -7,6 +7,7 @@ const {
   SlashCommandBuilder,
 } = require("discord.js");
 const { createProviders } = require("./providers");
+const { createBinancePriceService } = require("./services/binance-price-service");
 
 const REQUIRED_ENV = ["DISCORD_BOT_TOKEN", "DISCORD_CHANNEL_ID"];
 for (const key of REQUIRED_ENV) {
@@ -35,6 +36,7 @@ for (const provider of providers) {
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 const seenDepositIds = new Set();
 const adminUserIds = parseCsvSet(process.env.BOT_ADMIN_USER_IDS);
+const binancePriceService = createBinancePriceService();
 
 const timezone = process.env.TIMEZONE || "Africa/Cairo";
 const sendOldDeposits =
@@ -101,6 +103,21 @@ function normalizeError(error) {
   return error?.message || String(error);
 }
 
+function formatUsdValue(value) {
+  if (!Number.isFinite(value)) return "Unavailable";
+
+  let maximumFractionDigits = 2;
+  if (Math.abs(value) < 1) maximumFractionDigits = 6;
+  if (Math.abs(value) < 0.01) maximumFractionDigits = 8;
+
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits,
+  }).format(value);
+}
+
 function buildDepositEmbed(deposit, { isTest = false } = {}) {
   const title = isTest
     ? `TEST - ${deposit.providerName} Deposit Notification`
@@ -119,6 +136,11 @@ function buildDepositEmbed(deposit, { isTest = false } = {}) {
       {
         name: "Amount",
         value: shortText(`${deposit.amount || "0"} ${deposit.coin || ""}`.trim()),
+        inline: true,
+      },
+      {
+        name: "USD Value",
+        value: formatUsdValue(deposit.usdValue),
         inline: true,
       },
       {
@@ -170,8 +192,33 @@ async function getTargetChannel() {
 
 async function sendDepositNotification(deposit, { isTest = false } = {}) {
   const channel = await getTargetChannel();
-  const embed = buildDepositEmbed(deposit, { isTest });
+  const pricedDeposit = await enrichDepositWithUsdValue(deposit);
+  const embed = buildDepositEmbed(pricedDeposit, { isTest });
   await channel.send({ embeds: [embed] });
+}
+
+async function enrichDepositWithUsdValue(deposit) {
+  try {
+    const usdQuote = await binancePriceService.quoteUsdValue(
+      deposit.coin,
+      deposit.amount
+    );
+
+    if (!usdQuote) return deposit;
+
+    return {
+      ...deposit,
+      usdValue: usdQuote.usdValue,
+      usdRate: usdQuote.usdRate,
+      usdRoute: usdQuote.route,
+    };
+  } catch (error) {
+    console.error(
+      `USD pricing error for ${deposit.coin || "unknown coin"}:`,
+      normalizeError(error)
+    );
+    return deposit;
+  }
 }
 
 function isAuthorizedUser(userId) {
