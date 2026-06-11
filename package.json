@@ -1,0 +1,18 @@
+{
+  "name": "binance-discord-deposit-bot-railway",
+  "version": "2.0.0",
+  "description": "Discord bot that watches Binance deposits and posts confirmed deposits to a Discord channel.",
+  "main": "index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "axios": "^1.7.9",
+    "discord.js": "^14.16.3",
+    "dotenv": "^16.4.7"
+  }
+}
